@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Video</title>
+    <style>
+        body {
+            color: white;
+            margin: 0px;
+            padding: 0px;
+        }
+
+        header.feature-box.top {
+            width: 100%;
+            height: 300px;
+        }
+
+        .header_image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            margin : 0px;
+        }
+
+        header.feature-box.second {
+            background-color: blue;
+            height: 50px;
+            text-align: center;
+        {#margin-top: -25px;#}
+        }
+
+        section.col-sm {
+            background-color: black;
+            width: 1000px;
+            height: 650px;
+            border-radius: 35px;
+            object-fit: contain;
+            margin: 40px;
+        }
+
+        img {
+            width: 900px;
+            height: 600px;
+            border-radius: 35px;
+            object-fit: contain;
+            margin: 40px;
+        }
+
+        .new {
+            color: black;
+            margin: 0px;
+            padding: 10px;
+            background-color: green;
+            margin: 0px;
+            margin-top: -10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px auto;
+            background-color: white;
+            color: black;
+        }
+
+        table, th, td {
+            border: 1px solid black;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+
+
+    </style>
+</head>
+<body>
+<header class="feature-box top">
+    <img src="../static/images/bachkhoa_image.png" alt="" class="header_image">
+</header>
+<header class="feature-box second">
+    <h1><strong>Object Detection with Video</strong></h1>
+</header>
+
+<section class="col-sm" style="display: flex;align-items: flex-end;gap: 100px">
+    <img id="video-feed" src="{{ url_for('video') }}" alt="Upload video">
+    <div id="detectionInfo"
+         style="color: black; display: flex;justify-content: space-between;flex-direction: column;height: 100%">
+        <h3 style="font-size: 50px;width: 500px">Detection Information</h3>
+        <div style="display: flex; font-size: 40px;flex-direction: column">
+            {#        <p>FPS: <span id="fps" style="color: black">-</span> ms</p>#}
+            <p>Detection Time: <span id="detectionTime">-</span></p>
+            <p style="min-height: 200px">Detected Classes: <span id="detectedClasses">-</span></p>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="new">
+        <form method='POST' enctype="multipart/form-data"
+              style="align-content: center; text-align: center;display: flex;">
+            {{ form.hidden_tag() }}
+            {{ form.file(class_="custom-file-input") }}
+
+            <div>
+                <button type="submit" name="favorite" value="x" class="btnCustom">
+                    Submit
+                </button>
+            </div>
+        </form>
+    </div>
+
+    </div>
+</section>
+
+<script>
+    const videoFeed = document.getElementById('video-feed');
+    const detectionTimeElement = document.getElementById('detectionTime');
+    const fpsElement = document.getElementById('fps');
+    const detectedClassesElement = document.getElementById('detectedClasses');
+    const speechSynthesis = window.speechSynthesis;
+    let detectedClassesArray = [];
+    const streamSource = new EventSource('/video');
+    streamSource.addEventListener('image', function (event) {
+        const imageData = 'data:image/jpeg;base64,' + event.data;
+        videoFeed.src = imageData;
+    });
+
+    streamSource.addEventListener('detection', function (event) {
+        const detectionData = JSON.parse(event.data);
+        let utterance;
+        let speechText;
+        let classCounts = {}
+        detectionTimeElement.textContent = detectionData.time;
+        console.log(detectionData)
+        if (detectionData.object === 'traffic light') {
+            switch (detectionData.color) {
+                case 'red':
+                    utterance = new SpeechSynthesisUtterance('Red Light , Stopped');
+                    speechText = 'Đèn đỏ, dừng lại';
+                    break;
+                case 'yellow':
+                    utterance = new SpeechSynthesisUtterance('Yellow Light, Slow');
+                    speechText = 'Đèn vàng, đi chậm';
+                    break;
+                case 'green':
+                    utterance = new SpeechSynthesisUtterance('Green Light, Go Ahead');
+                    speechText = 'Đèn xanh, đi thẳng';
+                    break;
+                case 'unknown':
+                    utterance = new SpeechSynthesisUtterance('Go Ahead');
+                    speechText = 'Go Ahead';
+                    break;
+                default:
+                    utterance = new SpeechSynthesisUtterance('Go Ahead');
+                    speechText = 'Go Ahead';
+                    break;
+            }
+            if ('speechSynthesis' in window) {
+                speechSynthesis.speak(utterance);
+            } else {
+                console.log('Web Speech API không được hỗ trợ trên trình duyệt này.');
+            }
+        } else if (detectionData.object === 'car' || detectionData.object === 'truck') {
+            if (detectionData.warning) {
+                utterance = new SpeechSynthesisUtterance(detectionData.warning);
+            } else {
+            }
+            if (utterance && 'speechSynthesis' in window) {
+                speechSynthesis.speak(utterance);
+            } else {
+                console.log('Web Speech API không được hỗ trợ trên trình duyệt này.');
+            }
+        }
+        // Handle object detection
+        if (detectionData.object) {
+            if (!classCounts[detectionData.object]) {
+                classCounts[detectionData.object] = 1;
+            } else {
+                classCounts[detectionData.object]++;
+            }
+        }
+
+        // Update detection time if available
+        if (detectionData.time) {
+            detectionTimeElement.textContent = `${detectionData.time} ms`;
+        }
+
+        // Display class counts
+        const detectedClasses = Object.keys(classCounts).map(className => {
+            return `${className}: ${classCounts[className]}`;
+        }).join(', ');
+
+        // Push the detected classes string to the array
+        detectedClassesArray.push(detectedClasses);
+
+        // Limit the array size if it grows too large
+        const maxLength = 5; // Maximum number of items in the array
+        if (detectedClassesArray.length > maxLength) {
+            detectedClassesArray.shift(); // Remove the oldest item
+        }
+
+        // Join all items in the array with a comma
+        const concatenatedClasses = detectedClassesArray.join(', ');
+
+        // Truncate if too long
+        const maxLengthDisplay = 100; // Maximum length of displayed string
+        const truncatedClasses = concatenatedClasses.length > maxLengthDisplay ?
+            concatenatedClasses.substring(0, maxLengthDisplay) + '...' :
+            concatenatedClasses;
+
+        // Display detected classes
+        detectedClassesElement.textContent = truncatedClasses;
+    });
+</script>
+</body>
+</html>
